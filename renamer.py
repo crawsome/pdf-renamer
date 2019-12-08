@@ -9,6 +9,7 @@ regex = '^(PPA[-, ]*[\d]{2}-\d{3,5})$'
 # regex = '^\([0-9]{3}\)[0-9]{3}-[0-9]{4}$'
 inputdir = './1_sources/'
 textdir = './2_textoutput/'
+outputdir = './3_output/'
 
 # get a list of everything in the directory to be RENAMED
 original_doc_list = next(os.walk(inputdir))[2]
@@ -38,7 +39,7 @@ print(text_doc_list)
 
 for filename in text_doc_list:
 
-    nextfile = './2_textoutput/' + filename
+    nextfile = textdir + filename
     print('processing ' + nextfile.strip('.txt'))
     with open(nextfile, 'r') as f:
         ourtext = str(f.read())
@@ -48,6 +49,6 @@ for filename in text_doc_list:
         print('new name is: ' + nextname + '.pdf')
         proceed = input('Confirm? Y, N\n')
         if proceed == 'Y' or 'y':
-            os.rename('1_sources/' + filename + '.pdf', '3_output/' + nextname + '.pdf')
+            os.rename(inputdir + filename + '.pdf', outputdir + nextname + '.pdf')
         nextname = ''
 
