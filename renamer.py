@@ -57,8 +57,9 @@ def main():
         image_file_path = '{}{}'.format(imagedir, filename.replace('.pdf', ''))
         pdf_file = open('{}{}'.format(inputdir, filename), 'rb')
         pdf_file_path = '{}{}'.format(inputdir, filename)
-        # pages = convert_from_path(pdf_file, 500)
-        pages = convert_from_path(pdf_file_path, 200)
+        # 500dpi = around 6 seconds per page, 250 = 3 seconds, 100 <1second per PDF.
+        # # Anything below 100 is not very reliable.
+        pages = convert_from_path(pdf_file_path, 100)
         no_of_pages = len(pages)
         for index, page in enumerate(pages):
             img_path = image_file_path + '_page' + str(index + 1) + '.jpg'
