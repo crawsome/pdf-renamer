@@ -3,15 +3,37 @@ import os
 import shutil
 from PIL import Image
 import pytesseract
-import sys
 from pdf2image import convert_from_path, convert_from_bytes
-import cProfile as cp
 
-# Requires "poppler". https://stackoverflow.com/a/53960829
-# poppler needs to be added to PATH
+# Windows Issues:
+# 1. Requires "poppler". https://stackoverflow.com/a/53960829. poppler also needs to be added to PATH
+# 2. Requires "pytesseract". https://github.com/UB-Mannheim/tesseract/wiki. pytesseract also needs to be added to PATH
 
-# Requires "pytesseract". https://github.com/UB-Mannheim/tesseract/wiki
-# pytesseract needs to be added to PATH
+# Global Vars:
+
+# 500dpi = around 6 seconds per page, 250 = 3 seconds, 100 <1second per PDF.
+# # Anything below 100 is not very reliable.
+DPI_LEVEL = 100
+
+# If you need to make sure of every file name, use this one
+CONFIRM_EVERY_OPERATION = False
+
+# By Default, it's safe to run and no source deletes.
+# Change these following vars to True to do what they imply
+
+# Delete original source PDFs when done
+DELETE_SOURCES_WHEN_FINISHED = False
+
+# Delete text output of each PDF
+DELETE_TEXT_WHEN_FINISHED = False
+
+# Delete image copies of PDFs. Recommended to leave this at True, because the image copies waste space
+DELETE_IMAGES_WHEN_FINISHED = True
+
+# regex for searching for new file's name
+OUR_REGEX = re.compile('(CB-[\d]{3,}-COL)')
+
+
 def main():
     print(
         'Welcome to PDFRenamer\n'
@@ -19,11 +41,6 @@ def main():
         '2. When the script runs, the OCRed text will be saved in ./3_textoutput/\n'
         '3. If there\'s a regex match, the files will be re-saved to ./4_pdfoutput/\n'
     )
-
-    # regex for searching for new file's name
-    regex = re.compile('(CB-[\d]{3,}-COL)')
-    # phone number
-    # regex = '^\([0-9]{3}\)[0-9]{3}-[0-9]{4}$'
 
     inputdir = './1_sources/'
     imagedir = './2_imageoutput/'
@@ -44,28 +61,20 @@ def main():
 
     # get a list of everything in the directory to be RENAMED
     pdf_input_list = next(os.walk(inputdir))[2]
-    # 1: Read PDF
-    # 2. Create Image from PDF
-    # 3. Create Text from image
-    # 4. Regex text
-    # 5. Rename PDFs from step 1 to regex result
 
     # 1: Read PDF
-    # 2. Create Image from PDF
+
     for filename in pdf_input_list:
         out = open('{}{}.txt'.format(textdir, filename), 'w')
         image_file_path = '{}{}'.format(imagedir, filename.replace('.pdf', ''))
-        pdf_file = open('{}{}'.format(inputdir, filename), 'rb')
         pdf_file_path = '{}{}'.format(inputdir, filename)
-        # 500dpi = around 6 seconds per page, 250 = 3 seconds, 100 <1second per PDF.
-        # # Anything below 100 is not very reliable.
-        pages = convert_from_path(pdf_file_path, 100)
-        no_of_pages = len(pages)
+        pages = convert_from_path(pdf_file_path, DPI_LEVEL)
+
+        # 2. Create Image from PDF
         for index, page in enumerate(pages):
             img_path = image_file_path + '_page' + str(index + 1) + '.jpg'
             page.save(img_path, 'JPEG')
             text = str(pytesseract.image_to_string(Image.open(img_path)))
-            # text = text.replace('-\n', '')
             out.write(text)
         out.close()
 
@@ -73,26 +82,15 @@ def main():
     text_doc_list = next(os.walk(textdir))[2]
     image_doc_list = next(os.walk(imagedir))[2]
 
-    # If you need to make of every file name, use this one
-    CONFIRM_EVERY_OPERATION = False
-
-    ## OK Here's the potentially destructive part. By Default, it's safe to run and nothing deletes.
-    # Change these vars to True to do what they imply
-    DELETE_SOURCES_WHEN_FINISHED = False
-    DELETE_TEXT_WHEN_FINISHED = False
-    DELETE_IMAGES_WHEN_FINISHED = False
-
-
-    # 4. read text, and 5. rename the PDFs
+    # 4. read text, 5. find names, 6. copy and rename source pdfs.
     for filename in text_doc_list:
         nextfile = textdir + filename
         print('processing ' + nextfile.strip('.txt'))
         with open(nextfile, 'r') as f:
             ourtext = str(f.read())
             f.close()
-            #  fails here if there's nothing found
             try:
-                nextname = re.findall(regex, ourtext)[0]
+                nextname = re.findall(OUR_REGEX, ourtext)[0]
                 print(nextname)
             except IndexError:
                 print("No Matching Regex Found")
@@ -104,7 +102,6 @@ def main():
             if (proceed == 'Y' or 'y') or CONFIRM_EVERY_OPERATION == False:
                 in_pdf_name = inputdir + filename.replace('.txt', '')
                 out_pdf_name = outputdir + nextname + '.pdf'
-                # os.rename(in_pdf_name, out_pdf_name)
                 shutil.copy(in_pdf_name, out_pdf_name)
 
             nextname = ''
@@ -115,9 +112,10 @@ def main():
     if DELETE_TEXT_WHEN_FINISHED:
         for file in text_doc_list:
             os.remove(textdir + file)
-    if DELETE_SOURCES_WHEN_FINISHED:
+    if DELETE_SOURCES_WHEN_FINISHED:  # permission errors sometimes
         for file in pdf_input_list:
             os.remove(inputdir + file)
+
 
 if __name__ == '__main__':
     main()
