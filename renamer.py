@@ -120,7 +120,7 @@ def main():
             if CONFIRM_EVERY_OPERATION:
                 proceed = input('Confirm? Y, N\n')
             if (proceed == 'Y' or 'y') or not CONFIRM_EVERY_OPERATION:
-                in_pdf_name = PDF_INPUT_DIR + filename.replace('.txt', '')
+                in_pdf_name = PDF_INPUT_DIR + filename.replace('.txt', '.pdf')
                 out_pdf_name = PDF_OUTPUT_DIR + nextname + '.pdf'
                 shutil.copy(in_pdf_name, out_pdf_name)
 
