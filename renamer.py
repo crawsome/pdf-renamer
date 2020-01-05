@@ -3,7 +3,7 @@ import os
 import shutil
 from PIL import Image
 import pytesseract
-from pdf2image import convert_from_path, convert_from_bytes
+from pdf2image import convert_from_path
 
 # Windows Issues:
 # 1. Requires "poppler". https://stackoverflow.com/a/53960829. poppler also needs to be added to PATH
@@ -18,21 +18,52 @@ DPI_LEVEL = 100
 # If you need to make sure of every file name, use this one
 CONFIRM_EVERY_OPERATION = False
 
-# By Default, it's safe to run and no source deletes.
-# Change these following vars to True to do what they imply
-
 # Delete original source PDFs when done
-DELETE_SOURCES_WHEN_FINISHED = False
+DELETE_SOURCES = False
 
 # Delete text output of each PDF
-DELETE_TEXT_WHEN_FINISHED = False
+DELETE_TEXT = False
 
 # Delete image copies of PDFs. Recommended to leave this at True, because the image copies waste space
-DELETE_IMAGES_WHEN_FINISHED = True
+DELETE_IMAGES = True
 
-# regex for searching for new file's name
+# regex for searching for file's name within source documents. Works with included example docs. Replace with your own.
 OUR_REGEX = re.compile('(CB-[\d]{3,}-COL)')
 
+PDF_INPUT_DIR = './1_sources/'
+IMAGE_DIR = './2_imageoutput/'
+TEXT_DIR = './3_textoutput/'
+PDF_OUTPUT_DIR = './4_pdfoutput/'
+
+
+
+
+def pdf_to_jpg(pdffile, outfile):
+    pass
+
+def regex_find(text, regex):
+    pass
+
+def jpg_to_text(pdffile, outfile):
+    pass
+
+
+# verifies or create all the included directories in args list if they do not exist
+def check_or_create_directories(*args):
+    for directory in args:
+        print('created dir: ' + str(directory))
+        if not os.path.exists(directory):
+            os.mkdir(directory)
+
+def delete_directories(folderlist, doclist, deletelist):
+    for documentdir, documentname, deletebool in zip(folderlist, doclist, deletelist):
+        if deletebool:
+            try:
+                nextfile = str(documentdir) + str(documentname[0])
+                print('attempting to remove' + nextfile)
+                os.remove(nextfile)
+            except IndexError:
+                print('{} Empty, nothing to remove'.format(documentdir))
 
 def main():
     print(
@@ -42,49 +73,38 @@ def main():
         '3. If there\'s a regex match, the files will be re-saved to ./4_pdfoutput/\n'
     )
 
-    inputdir = './1_sources/'
-    imagedir = './2_imageoutput/'
-    textdir = './3_textoutput/'
-    outputdir = './4_pdfoutput/'
-
-    # create all the directories above if they do not exist
-    if not os.path.exists(inputdir):
-        os.mkdir(inputdir)
-        print('Please put source pdfs into {}, then rerun program'.format(inputdir))
-        quit()
-    if not os.path.exists(imagedir):
-        os.mkdir(imagedir)
-    if not os.path.exists(textdir):
-        os.mkdir(textdir)
-    if not os.path.exists(outputdir):
-        os.mkdir(outputdir)
+    check_or_create_directories(PDF_INPUT_DIR, IMAGE_DIR, TEXT_DIR, PDF_OUTPUT_DIR)
 
     # get a list of everything in the directory to be RENAMED
-    pdf_input_list = next(os.walk(inputdir))[2]
+    pdf_doc_list = next(os.walk(PDF_INPUT_DIR))[2]
 
     # 1: Read PDF
+    for filename in pdf_doc_list:
+        textfilepath = '{}{}'.format(TEXT_DIR, filename.replace('.pdf', '.txt'))
 
-    for filename in pdf_input_list:
-        out = open('{}{}.txt'.format(textdir, filename), 'w')
-        image_file_path = '{}{}'.format(imagedir, filename.replace('.pdf', ''))
-        pdf_file_path = '{}{}'.format(inputdir, filename)
-        pages = convert_from_path(pdf_file_path, DPI_LEVEL)
+        text_file = open(textfilepath, 'w')
 
-        # 2. Create Image from PDF
+        imagefile = '{}{}'.format(IMAGE_DIR, filename.replace('.pdf', ''))
+
+        pdffilepath = '{}{}'.format(PDF_INPUT_DIR, filename)
+
+        pages = convert_from_path(pdffilepath, DPI_LEVEL)
+
+        # 2. Create Images from PDFs
         for index, page in enumerate(pages):
-            img_path = image_file_path + '_page' + str(index + 1) + '.jpg'
+            img_path = imagefile + '_page' + str(index + 1) + '.jpg'
             page.save(img_path, 'JPEG')
             text = str(pytesseract.image_to_string(Image.open(img_path)))
-            out.write(text)
-        out.close()
+            text_file.write(text)
+        text_file.close()
 
-    # get a list of the directory we are getting the new names from
-    text_doc_list = next(os.walk(textdir))[2]
-    image_doc_list = next(os.walk(imagedir))[2]
+    image_doc_list = next(os.walk(IMAGE_DIR))[2]
+    text_doc_list = next(os.walk(TEXT_DIR))[2]
 
-    # 4. read text, 5. find names, 6. copy and rename source pdfs.
+    nextname = ''
+    # 3. Read text, 4. Find names, 5. Copy and rename source pdfs.
     for filename in text_doc_list:
-        nextfile = textdir + filename
+        nextfile = TEXT_DIR + filename
         print('processing ' + nextfile.strip('.txt'))
         with open(nextfile, 'r') as f:
             ourtext = str(f.read())
@@ -99,22 +119,15 @@ def main():
             proceed = ''
             if CONFIRM_EVERY_OPERATION:
                 proceed = input('Confirm? Y, N\n')
-            if (proceed == 'Y' or 'y') or CONFIRM_EVERY_OPERATION == False:
-                in_pdf_name = inputdir + filename.replace('.txt', '')
-                out_pdf_name = outputdir + nextname + '.pdf'
+            if (proceed == 'Y' or 'y') or not CONFIRM_EVERY_OPERATION:
+                in_pdf_name = PDF_INPUT_DIR + filename.replace('.txt', '')
+                out_pdf_name = PDF_OUTPUT_DIR + nextname + '.pdf'
                 shutil.copy(in_pdf_name, out_pdf_name)
 
-            nextname = ''
 
-    if DELETE_IMAGES_WHEN_FINISHED:
-        for file in image_doc_list:
-            os.remove(imagedir + file)
-    if DELETE_TEXT_WHEN_FINISHED:
-        for file in text_doc_list:
-            os.remove(textdir + file)
-    if DELETE_SOURCES_WHEN_FINISHED:  # permission errors sometimes
-        for file in pdf_input_list:
-            os.remove(inputdir + file)
+
+    delete_directories([PDF_INPUT_DIR, IMAGE_DIR, TEXT_DIR], [pdf_doc_list, image_doc_list, text_doc_list],
+                       [DELETE_SOURCES, DELETE_IMAGES, DELETE_TEXT])
 
 
 if __name__ == '__main__':
